@@ -135,6 +135,124 @@ type bookList struct {
 	Detail     []bookDetail
 }
 
+func getBookDetail(bookID int) []bookDetail {
+	fmt.Printf("%d now ", bookID)
+
+	bookDetailURL := "https://wx.laomassf.com/prointerface/MiniApp/Index.asmx/GetAudioList"
+	values := map[string]interface{}{"bookId": bookID}
+	jsonStr, _ := json.Marshal(values)
+
+	jsonBody := getRequestPost(bookDetailURL, jsonStr)
+
+	firstData := parser(jsonBody)
+	secondData := parser(firstData["d"])
+	var wxBooksObj []wxBookDetail
+	_ = json.Unmarshal([]byte(secondData["Data"].(string)), &wxBooksObj)
+	var bookDetailObj = make([]bookDetail, len(wxBooksObj))
+	for i := 0; i < len(wxBooksObj); i++ {
+		bookDetailObj[i].Name = wxBooksObj[i].Name
+		bookDetailObj[i].Title = wxBooksObj[i].Title
+		bookDetailObj[i].HomeImg = urlPathFormat(wxBooksObj[i].HomeImg)
+		bookDetailObj[i].AudioAbstract = wxBooksObj[i].AudioAbstract
+		bookDetailObj[i].FileSize = wxBooksObj[i].FileSize
+		bookDetailObj[i].FileDuration = wxBooksObj[i].FileDuration
+		bookDetailObj[i].CreateDate = createDateFormat(wxBooksObj[i].CreateDate)
+		bookDetailObj[i].FilePath = urlPathFormat(wxBooksObj[i].FilePath)
+	}
+	return bookDetailObj
+}
+
+func getRequestPost(urlStr string, jsonStr []byte) string {
+
+	req, err := http.NewRequest("POST", urlStr, bytes.NewBuffer(jsonStr))
+	if err != nil {
+		panic(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Host", "wx.laomassf.com")
+	req.Header.Set("Referer", "https://servicewechat.com/wx1f8180176500f209/25/page-frame.html")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 13_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/7.0.10(0x17000a21) NetType/WIFI Language/zh_CN")
+	// proxyURL, err := url.Parse("http://127.0.0.1:8888")
+	if err != nil {
+		panic(err)
+	}
+	// tr := &http.Transport{
+	// 	Proxy: http.ProxyURL(proxyURL),
+	// }
+	// client := &http.Client{Transport: tr}
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		panic(err)
+	}
+	return string(body)
+}
+
+func urlPathFormat(urlPath string) string {
+	return "https://wx.laomassf.com" + urlPath
+}
+
+func createDateFormat(createDate string) string {
+	i, _ := strconv.ParseInt(createDate[6:len(createDate)-5], 10, 64)
+	tm := time.Unix(i, 0)
+	return tm.Format("2006-01-02 15:04:05")
+}
+
+func example() {
+	client := redis.NewClient(&redis.Options{
+		Addr:     "redis:6379",
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+	defer client.Close()
+
+	page := 1
+	for {
+		var bookObj []bookList
+		bookObj, err := getBookData(page)
+		if err != nil {
+			fmt.Println(err.Error())
+			break
+		}
+		for _, val := range bookObj {
+			mapBookList := make(map[string]interface{})
+
+			jsonBookList, _ := json.Marshal(val)
+			json.Unmarshal(jsonBookList, &mapBookList)
+
+			jsonDetail, _ := json.Marshal(mapBookList["Detail"])
+			delete(mapBookList, "Detail")
+
+			mapBookList["Detail"] = string(jsonDetail)
+
+			err := client.HMSet(strconv.Itoa(val.ID), mapBookList).Err()
+			if err != nil {
+				panic(err)
+			}
+		}
+		fmt.Println(page)
+		page++
+	}
+
+}
+
+func main() {
+	example()
+}
+
+func parser(data interface{}) map[string]interface{} {
+	var i interface{}
+	json.Unmarshal([]byte(data.(string)), &i)
+	jData, _ := i.(map[string]interface{})
+	return jData
+}
+
 func getBookData(pageIndex int) (b []bookList, err error) {
 
 	pageSize := 15
@@ -195,122 +313,4 @@ func worker(bookIDChan <-chan int, results chan<- []bookDetail) {
 	for bookID := range bookIDChan {
 		results <- getBookDetail(bookID)
 	}
-}
-
-func getRequestPost(urlStr string, jsonStr []byte) string {
-
-	req, err := http.NewRequest("POST", urlStr, bytes.NewBuffer(jsonStr))
-	if err != nil {
-		panic(err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Host", "wx.laomassf.com")
-	req.Header.Set("Referer", "https://servicewechat.com/wx1f8180176500f209/25/page-frame.html")
-	req.Header.Set("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 13_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/7.0.10(0x17000a21) NetType/WIFI Language/zh_CN")
-	// proxyURL, err := url.Parse("http://127.0.0.1:8888")
-	if err != nil {
-		panic(err)
-	}
-	// tr := &http.Transport{
-	// 	Proxy: http.ProxyURL(proxyURL),
-	// }
-	// client := &http.Client{Transport: tr}
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		panic(err)
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		panic(err)
-	}
-	return string(body)
-}
-
-func createDateFormat(createDate string) string {
-	i, _ := strconv.ParseInt(createDate[6:len(createDate)-5], 10, 64)
-	tm := time.Unix(i, 0)
-	return tm.Format("2006-01-02 15:04:05")
-}
-
-func urlPathFormat(urlPath string) string {
-	return "https://wx.laomassf.com" + urlPath
-}
-
-func getBookDetail(bookID int) []bookDetail {
-	fmt.Printf("%d now ", bookID)
-
-	bookDetailURL := "https://wx.laomassf.com/prointerface/MiniApp/Index.asmx/GetAudioList"
-	values := map[string]interface{}{"bookId": bookID}
-	jsonStr, _ := json.Marshal(values)
-
-	jsonBody := getRequestPost(bookDetailURL, jsonStr)
-
-	firstData := parser(jsonBody)
-	secondData := parser(firstData["d"])
-	var wxBooksObj []wxBookDetail
-	_ = json.Unmarshal([]byte(secondData["Data"].(string)), &wxBooksObj)
-	var bookDetailObj = make([]bookDetail, len(wxBooksObj))
-	for i := 0; i < len(wxBooksObj); i++ {
-		bookDetailObj[i].Name = wxBooksObj[i].Name
-		bookDetailObj[i].Title = wxBooksObj[i].Title
-		bookDetailObj[i].HomeImg = urlPathFormat(wxBooksObj[i].HomeImg)
-		bookDetailObj[i].AudioAbstract = wxBooksObj[i].AudioAbstract
-		bookDetailObj[i].FileSize = wxBooksObj[i].FileSize
-		bookDetailObj[i].FileDuration = wxBooksObj[i].FileDuration
-		bookDetailObj[i].CreateDate = createDateFormat(wxBooksObj[i].CreateDate)
-		bookDetailObj[i].FilePath = urlPathFormat(wxBooksObj[i].FilePath)
-	}
-	return bookDetailObj
-}
-
-func parser(data interface{}) map[string]interface{} {
-	var i interface{}
-	json.Unmarshal([]byte(data.(string)), &i)
-	jData, _ := i.(map[string]interface{})
-	return jData
-}
-
-func example() {
-	client := redis.NewClient(&redis.Options{
-		Addr:     "redis:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
-	defer client.Close()
-
-	page := 1
-	for {
-		var bookObj []bookList
-		bookObj, err := getBookData(page)
-		if err != nil {
-			fmt.Println(err.Error())
-			break
-		}
-		for _, val := range bookObj {
-			mapBookList := make(map[string]interface{})
-
-			jsonBookList, _ := json.Marshal(val)
-			json.Unmarshal(jsonBookList, &mapBookList)
-
-			jsonDetail, _ := json.Marshal(mapBookList["Detail"])
-			delete(mapBookList, "Detail")
-
-			mapBookList["Detail"] = string(jsonDetail)
-
-			err := client.HMSet(strconv.Itoa(val.ID), mapBookList).Err()
-			if err != nil {
-				panic(err)
-			}
-		}
-		fmt.Println(page)
-		page++
-	}
-
-}
-
-func main() {
-	example()
 }
