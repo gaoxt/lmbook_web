@@ -65,34 +65,34 @@ func init() {
 	log.SetFlags(log.Ldate | log.Lshortfile)
 }
 
-func apiBookDetail(w http.ResponseWriter, r *http.Request) {
-	pathParams := mux.Vars(r)
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	var jsonObj []byte
-	bookID := -1
-	var err error
-	if val, ok := pathParams["id"]; ok {
-		bookID, err = strconv.Atoi(val)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"code":1,"message":"error params"}`))
-			return
-		}
+func getBookDetail(bookID int) *responseBookDetail {
+	client := singletonRedis.GetRedis()
+	client.Do("select", 0)
+	item := client.HGetAll(strconv.Itoa(bookID))
+	var bookDetailList []bookDetail
+	_ = json.Unmarshal([]byte(item.Val()["Detail"]), &bookDetailList)
+	var bookDetailObj = make([]bookDetail, len(bookDetailList))
+	for i := 0; i < len(bookDetailList); i++ {
+		bookDetailObj[i].Title = bookDetailList[i].Title
+		bookDetailObj[i].AudioAbstract = bookDetailList[i].AudioAbstract
+		bookDetailObj[i].FileSize = bookDetailList[i].FileSize
+		bookDetailObj[i].FileDuration = bookDetailList[i].FileDuration
+		bookDetailObj[i].CreateDate = bookDetailList[i].CreateDate
+		bookDetailObj[i].FilePath = bookDetailList[i].FilePath
 	}
-	if bookID <= 0 {
-		var bookDetailObj = make([]bookDetail, 0)
-		res := responseBookDetail{}
-		res.Code = 2
-		res.Message = "error bookID"
-		res.Data = bookDetailObj
-		jsonObj, _ = json.Marshal(res)
-		w.Write([]byte(jsonObj))
-	} else {
-		res := getBookDetail(bookID)
-		jsonObj, _ = json.Marshal(res)
-		w.Write([]byte(jsonObj))
-	}
+	res := &responseBookDetail{}
+	res.Code = 0
+	res.Message = "success"
+	res.Data = bookDetailObj
+	return res
+}
+
+func main() {
+	r := mux.NewRouter()
+	r.HandleFunc("/", get).Methods(http.MethodGet)
+	r.HandleFunc("/list/{page}", apiBookList).Methods(http.MethodGet)
+	r.HandleFunc("/detail/{id}", apiBookDetail).Methods(http.MethodGet)
+	log.Fatal(http.ListenAndServe("0.0.0.0:8081", r))
 }
 
 func getBookList(pageIndex int) *responseBookList {
@@ -154,11 +154,41 @@ func getRequestPost(url string, jsonStr []byte) string {
 	return string(body)
 }
 
-func get(w http.ResponseWriter, r *http.Request) {
+func apiBookDetail(w http.ResponseWriter, r *http.Request) {
+	pathParams := mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"code":0,"message":"welcome"}`))
+	var jsonObj []byte
+	bookID := -1
+	var err error
+	if val, ok := pathParams["id"]; ok {
+		bookID, err = strconv.Atoi(val)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`{"code":1,"message":"error params"}`))
+			return
+		}
+	}
+	if bookID <= 0 {
+		var bookDetailObj = make([]bookDetail, 0)
+		res := responseBookDetail{}
+		res.Code = 2
+		res.Message = "error bookID"
+		res.Data = bookDetailObj
+		jsonObj, _ = json.Marshal(res)
+		w.Write([]byte(jsonObj))
+	} else {
+		res := getBookDetail(bookID)
+		jsonObj, _ = json.Marshal(res)
+		w.Write([]byte(jsonObj))
+	}
+}
+
+func parser(data interface{}) map[string]interface{} {
+	var i interface{}
+	json.Unmarshal([]byte(data.(string)), &i)
+	jData, _ := i.(map[string]interface{})
+	return jData
 }
 
 func apiBookList(w http.ResponseWriter, r *http.Request) {
@@ -181,39 +211,9 @@ func apiBookList(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(jsonObj))
 }
 
-func parser(data interface{}) map[string]interface{} {
-	var i interface{}
-	json.Unmarshal([]byte(data.(string)), &i)
-	jData, _ := i.(map[string]interface{})
-	return jData
-}
-
-func main() {
-	r := mux.NewRouter()
-	r.HandleFunc("/", get).Methods(http.MethodGet)
-	r.HandleFunc("/list/{page}", apiBookList).Methods(http.MethodGet)
-	r.HandleFunc("/detail/{id}", apiBookDetail).Methods(http.MethodGet)
-	log.Fatal(http.ListenAndServe("0.0.0.0:8081", r))
-}
-
-func getBookDetail(bookID int) *responseBookDetail {
-	client := singletonRedis.GetRedis()
-	client.Do("select", 0)
-	item := client.HGetAll(strconv.Itoa(bookID))
-	var bookDetailList []bookDetail
-	_ = json.Unmarshal([]byte(item.Val()["Detail"]), &bookDetailList)
-	var bookDetailObj = make([]bookDetail, len(bookDetailList))
-	for i := 0; i < len(bookDetailList); i++ {
-		bookDetailObj[i].Title = bookDetailList[i].Title
-		bookDetailObj[i].AudioAbstract = bookDetailList[i].AudioAbstract
-		bookDetailObj[i].FileSize = bookDetailList[i].FileSize
-		bookDetailObj[i].FileDuration = bookDetailList[i].FileDuration
-		bookDetailObj[i].CreateDate = bookDetailList[i].CreateDate
-		bookDetailObj[i].FilePath = bookDetailList[i].FilePath
-	}
-	res := &responseBookDetail{}
-	res.Code = 0
-	res.Message = "success"
-	res.Data = bookDetailObj
-	return res
+func get(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"code":0,"message":"welcome"}`))
 }
