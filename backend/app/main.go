@@ -61,6 +61,10 @@ func (b BookListSort) Less(i, j int) bool {
 	return b[i].Value.ID < b[j].Value.ID
 }
 
+func init() {
+	log.SetFlags(log.Ldate | log.Lshortfile)
+}
+
 func apiBookDetail(w http.ResponseWriter, r *http.Request) {
 	pathParams := mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
@@ -89,74 +93,6 @@ func apiBookDetail(w http.ResponseWriter, r *http.Request) {
 		jsonObj, _ = json.Marshal(res)
 		w.Write([]byte(jsonObj))
 	}
-}
-
-func init() {
-	log.SetFlags(log.Ldate | log.Lshortfile)
-}
-
-func parser(data interface{}) map[string]interface{} {
-	var i interface{}
-	json.Unmarshal([]byte(data.(string)), &i)
-	jData, _ := i.(map[string]interface{})
-	return jData
-}
-
-func get(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"code":0,"message":"welcome"}`))
-}
-
-func main() {
-	r := mux.NewRouter()
-	r.HandleFunc("/", get).Methods(http.MethodGet)
-	r.HandleFunc("/list/{page}", apiBookList).Methods(http.MethodGet)
-	r.HandleFunc("/detail/{id}", apiBookDetail).Methods(http.MethodGet)
-	log.Fatal(http.ListenAndServe("0.0.0.0:8081", r))
-}
-
-func getBookDetail(bookID int) *responseBookDetail {
-	client := singletonRedis.GetRedis()
-	client.Do("select", 0)
-	item := client.HGetAll(strconv.Itoa(bookID))
-	var bookDetailList []bookDetail
-	_ = json.Unmarshal([]byte(item.Val()["Detail"]), &bookDetailList)
-	var bookDetailObj = make([]bookDetail, len(bookDetailList))
-	for i := 0; i < len(bookDetailList); i++ {
-		bookDetailObj[i].Title = bookDetailList[i].Title
-		bookDetailObj[i].AudioAbstract = bookDetailList[i].AudioAbstract
-		bookDetailObj[i].FileSize = bookDetailList[i].FileSize
-		bookDetailObj[i].FileDuration = bookDetailList[i].FileDuration
-		bookDetailObj[i].CreateDate = bookDetailList[i].CreateDate
-		bookDetailObj[i].FilePath = bookDetailList[i].FilePath
-	}
-	res := &responseBookDetail{}
-	res.Code = 0
-	res.Message = "success"
-	res.Data = bookDetailObj
-	return res
-}
-
-func apiBookList(w http.ResponseWriter, r *http.Request) {
-	pathParams := mux.Vars(r)
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	page := 1
-	var err error
-	if val, ok := pathParams["page"]; ok {
-		page, err = strconv.Atoi(val)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"code":1,"message":"error params"}`))
-			return
-		}
-	}
-	var jsonObj []byte
-	res := getBookList(page)
-	jsonObj, _ = json.Marshal(res)
-	w.Write([]byte(jsonObj))
 }
 
 func getBookList(pageIndex int) *responseBookList {
@@ -216,4 +152,68 @@ func getRequestPost(url string, jsonStr []byte) string {
 
 	body, _ := ioutil.ReadAll(resp.Body)
 	return string(body)
+}
+
+func get(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"code":0,"message":"welcome"}`))
+}
+
+func apiBookList(w http.ResponseWriter, r *http.Request) {
+	pathParams := mux.Vars(r)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	page := 1
+	var err error
+	if val, ok := pathParams["page"]; ok {
+		page, err = strconv.Atoi(val)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`{"code":1,"message":"error params"}`))
+			return
+		}
+	}
+	var jsonObj []byte
+	res := getBookList(page)
+	jsonObj, _ = json.Marshal(res)
+	w.Write([]byte(jsonObj))
+}
+
+func parser(data interface{}) map[string]interface{} {
+	var i interface{}
+	json.Unmarshal([]byte(data.(string)), &i)
+	jData, _ := i.(map[string]interface{})
+	return jData
+}
+
+func main() {
+	r := mux.NewRouter()
+	r.HandleFunc("/", get).Methods(http.MethodGet)
+	r.HandleFunc("/list/{page}", apiBookList).Methods(http.MethodGet)
+	r.HandleFunc("/detail/{id}", apiBookDetail).Methods(http.MethodGet)
+	log.Fatal(http.ListenAndServe("0.0.0.0:8081", r))
+}
+
+func getBookDetail(bookID int) *responseBookDetail {
+	client := singletonRedis.GetRedis()
+	client.Do("select", 0)
+	item := client.HGetAll(strconv.Itoa(bookID))
+	var bookDetailList []bookDetail
+	_ = json.Unmarshal([]byte(item.Val()["Detail"]), &bookDetailList)
+	var bookDetailObj = make([]bookDetail, len(bookDetailList))
+	for i := 0; i < len(bookDetailList); i++ {
+		bookDetailObj[i].Title = bookDetailList[i].Title
+		bookDetailObj[i].AudioAbstract = bookDetailList[i].AudioAbstract
+		bookDetailObj[i].FileSize = bookDetailList[i].FileSize
+		bookDetailObj[i].FileDuration = bookDetailList[i].FileDuration
+		bookDetailObj[i].CreateDate = bookDetailList[i].CreateDate
+		bookDetailObj[i].FilePath = bookDetailList[i].FilePath
+	}
+	res := &responseBookDetail{}
+	res.Code = 0
+	res.Message = "success"
+	res.Data = bookDetailObj
+	return res
 }
