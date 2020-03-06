@@ -83,75 +83,6 @@ func getBookDetail(bookID int) *responseBookDetail {
 	return res
 }
 
-func main() {
-	r := mux.NewRouter()
-	r.HandleFunc("/", get).Methods(http.MethodGet)
-	r.HandleFunc("/list/{page}", apiBookList).Methods(http.MethodGet)
-	r.HandleFunc("/detail/{id}", apiBookDetail).Methods(http.MethodGet)
-	log.Fatal(http.ListenAndServe("0.0.0.0:8081", r))
-}
-
-func init() {
-	log.SetFlags(log.Ldate | log.Lshortfile)
-}
-
-func apiBookDetail(w http.ResponseWriter, r *http.Request) {
-	pathParams := mux.Vars(r)
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	var jsonObj []byte
-	bookID := -1
-	var err error
-	if val, ok := pathParams["id"]; ok {
-		bookID, err = strconv.Atoi(val)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"code":1,"message":"error params"}`))
-			return
-		}
-	}
-	if bookID <= 0 {
-		var bookDetailObj = make([]bookDetail, 0)
-		res := responseBookDetail{}
-		res.Code = 2
-		res.Message = "error bookID"
-		res.Data = bookDetailObj
-		jsonObj, _ = json.Marshal(res)
-		w.Write([]byte(jsonObj))
-	} else {
-		res := getBookDetail(bookID)
-		jsonObj, _ = json.Marshal(res)
-		w.Write([]byte(jsonObj))
-	}
-}
-
-func parser(data interface{}) map[string]interface{} {
-	var i interface{}
-	json.Unmarshal([]byte(data.(string)), &i)
-	jData, _ := i.(map[string]interface{})
-	return jData
-}
-
-func apiBookList(w http.ResponseWriter, r *http.Request) {
-	pathParams := mux.Vars(r)
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	page := 1
-	var err error
-	if val, ok := pathParams["page"]; ok {
-		page, err = strconv.Atoi(val)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"code":1,"message":"error params"}`))
-			return
-		}
-	}
-	var jsonObj []byte
-	res := getBookList(page)
-	jsonObj, _ = json.Marshal(res)
-	w.Write([]byte(jsonObj))
-}
-
 func getBookList(pageIndex int) *responseBookList {
 	client := singletonRedis.GetRedis()
 	var keys []string
@@ -211,9 +142,78 @@ func getRequestPost(url string, jsonStr []byte) string {
 	return string(body)
 }
 
+func apiBookList(w http.ResponseWriter, r *http.Request) {
+	pathParams := mux.Vars(r)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	page := 1
+	var err error
+	if val, ok := pathParams["page"]; ok {
+		page, err = strconv.Atoi(val)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`{"code":1,"message":"error params"}`))
+			return
+		}
+	}
+	var jsonObj []byte
+	res := getBookList(page)
+	jsonObj, _ = json.Marshal(res)
+	w.Write([]byte(jsonObj))
+}
+
+func init() {
+	log.SetFlags(log.Ldate | log.Lshortfile)
+}
+
+func apiBookDetail(w http.ResponseWriter, r *http.Request) {
+	pathParams := mux.Vars(r)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	var jsonObj []byte
+	bookID := -1
+	var err error
+	if val, ok := pathParams["id"]; ok {
+		bookID, err = strconv.Atoi(val)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`{"code":1,"message":"error params"}`))
+			return
+		}
+	}
+	if bookID <= 0 {
+		var bookDetailObj = make([]bookDetail, 0)
+		res := responseBookDetail{}
+		res.Code = 2
+		res.Message = "error bookID"
+		res.Data = bookDetailObj
+		jsonObj, _ = json.Marshal(res)
+		w.Write([]byte(jsonObj))
+	} else {
+		res := getBookDetail(bookID)
+		jsonObj, _ = json.Marshal(res)
+		w.Write([]byte(jsonObj))
+	}
+}
+
+func main() {
+	r := mux.NewRouter()
+	r.HandleFunc("/", get).Methods(http.MethodGet)
+	r.HandleFunc("/list/{page}", apiBookList).Methods(http.MethodGet)
+	r.HandleFunc("/detail/{id}", apiBookDetail).Methods(http.MethodGet)
+	log.Fatal(http.ListenAndServe("0.0.0.0:8081", r))
+}
+
 func get(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"code":0,"message":"welcome"}`))
+}
+
+func parser(data interface{}) map[string]interface{} {
+	var i interface{}
+	json.Unmarshal([]byte(data.(string)), &i)
+	jData, _ := i.(map[string]interface{})
+	return jData
 }
