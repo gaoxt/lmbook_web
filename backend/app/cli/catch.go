@@ -145,11 +145,31 @@ func createDateFormat(createDate string) string {
 	return tm.Format("2006-01-02 15:04:05")
 }
 
-func parser(data interface{}) map[string]interface{} {
-	var i interface{}
-	json.Unmarshal([]byte(data.(string)), &i)
-	jData, _ := i.(map[string]interface{})
-	return jData
+func getBookDetail(bookID int) []bookDetail {
+	fmt.Printf("%d now ", bookID)
+
+	bookDetailURL := "https://wx.laomassf.com/prointerface/MiniApp/Index.asmx/GetAudioList"
+	values := map[string]interface{}{"bookId": bookID}
+	jsonStr, _ := json.Marshal(values)
+
+	jsonBody := getRequestPost(bookDetailURL, jsonStr)
+
+	firstData := parser(jsonBody)
+	secondData := parser(firstData["d"])
+	var wxBooksObj []wxBookDetail
+	_ = json.Unmarshal([]byte(secondData["Data"].(string)), &wxBooksObj)
+	var bookDetailObj = make([]bookDetail, len(wxBooksObj))
+	for i := 0; i < len(wxBooksObj); i++ {
+		bookDetailObj[i].Name = wxBooksObj[i].Name
+		bookDetailObj[i].Title = wxBooksObj[i].Title
+		bookDetailObj[i].HomeImg = urlPathFormat(wxBooksObj[i].HomeImg)
+		bookDetailObj[i].AudioAbstract = wxBooksObj[i].AudioAbstract
+		bookDetailObj[i].FileSize = wxBooksObj[i].FileSize
+		bookDetailObj[i].FileDuration = wxBooksObj[i].FileDuration
+		bookDetailObj[i].CreateDate = createDateFormat(wxBooksObj[i].CreateDate)
+		bookDetailObj[i].FilePath = urlPathFormat(wxBooksObj[i].FilePath)
+	}
+	return bookDetailObj
 }
 
 func getRequestPost(urlStr string, jsonStr []byte) string {
@@ -184,46 +204,11 @@ func getRequestPost(urlStr string, jsonStr []byte) string {
 	return string(body)
 }
 
-func example() {
-	client := redis.NewClient(&redis.Options{
-		Addr:     "redis:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
-	defer client.Close()
-
-	page := 1
-	for {
-		var bookObj []bookList
-		bookObj, err := getBookData(page)
-		if err != nil {
-			fmt.Println(err.Error())
-			break
-		}
-		for _, val := range bookObj {
-			mapBookList := make(map[string]interface{})
-
-			jsonBookList, _ := json.Marshal(val)
-			json.Unmarshal(jsonBookList, &mapBookList)
-
-			jsonDetail, _ := json.Marshal(mapBookList["Detail"])
-			delete(mapBookList, "Detail")
-
-			mapBookList["Detail"] = string(jsonDetail)
-
-			err := client.HMSet(strconv.Itoa(val.ID), mapBookList).Err()
-			if err != nil {
-				panic(err)
-			}
-		}
-		fmt.Println(page)
-		page++
-	}
-
-}
-
-func main() {
-	example()
+func parser(data interface{}) map[string]interface{} {
+	var i interface{}
+	json.Unmarshal([]byte(data.(string)), &i)
+	jData, _ := i.(map[string]interface{})
+	return jData
 }
 
 func getBookData(pageIndex int) (b []bookList, err error) {
@@ -288,29 +273,44 @@ func worker(bookIDChan <-chan int, results chan<- []bookDetail) {
 	}
 }
 
-func getBookDetail(bookID int) []bookDetail {
-	fmt.Printf("%d now ", bookID)
+func example() {
+	client := redis.NewClient(&redis.Options{
+		Addr:     "redis:6379",
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+	defer client.Close()
 
-	bookDetailURL := "https://wx.laomassf.com/prointerface/MiniApp/Index.asmx/GetAudioList"
-	values := map[string]interface{}{"bookId": bookID}
-	jsonStr, _ := json.Marshal(values)
+	page := 1
+	for {
+		var bookObj []bookList
+		bookObj, err := getBookData(page)
+		if err != nil {
+			fmt.Println(err.Error())
+			break
+		}
+		for _, val := range bookObj {
+			mapBookList := make(map[string]interface{})
 
-	jsonBody := getRequestPost(bookDetailURL, jsonStr)
+			jsonBookList, _ := json.Marshal(val)
+			json.Unmarshal(jsonBookList, &mapBookList)
 
-	firstData := parser(jsonBody)
-	secondData := parser(firstData["d"])
-	var wxBooksObj []wxBookDetail
-	_ = json.Unmarshal([]byte(secondData["Data"].(string)), &wxBooksObj)
-	var bookDetailObj = make([]bookDetail, len(wxBooksObj))
-	for i := 0; i < len(wxBooksObj); i++ {
-		bookDetailObj[i].Name = wxBooksObj[i].Name
-		bookDetailObj[i].Title = wxBooksObj[i].Title
-		bookDetailObj[i].HomeImg = urlPathFormat(wxBooksObj[i].HomeImg)
-		bookDetailObj[i].AudioAbstract = wxBooksObj[i].AudioAbstract
-		bookDetailObj[i].FileSize = wxBooksObj[i].FileSize
-		bookDetailObj[i].FileDuration = wxBooksObj[i].FileDuration
-		bookDetailObj[i].CreateDate = createDateFormat(wxBooksObj[i].CreateDate)
-		bookDetailObj[i].FilePath = urlPathFormat(wxBooksObj[i].FilePath)
+			jsonDetail, _ := json.Marshal(mapBookList["Detail"])
+			delete(mapBookList, "Detail")
+
+			mapBookList["Detail"] = string(jsonDetail)
+
+			err := client.HMSet(strconv.Itoa(val.ID), mapBookList).Err()
+			if err != nil {
+				panic(err)
+			}
+		}
+		fmt.Println(page)
+		page++
 	}
-	return bookDetailObj
+
+}
+
+func main() {
+	example()
 }
