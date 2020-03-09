@@ -89,6 +89,24 @@ func apiBookList(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(jsonObj))
 }
 
+func init() {
+	log.SetFlags(log.Ldate | log.Lshortfile)
+}
+
+func parser(data interface{}) map[string]interface{} {
+	var i interface{}
+	json.Unmarshal([]byte(data.(string)), &i)
+	jData, _ := i.(map[string]interface{})
+	return jData
+}
+
+func get(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"code":0,"message":"welcome"}`))
+}
+
 func apiBookDetail(w http.ResponseWriter, r *http.Request) {
 	pathParams := mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
@@ -117,24 +135,6 @@ func apiBookDetail(w http.ResponseWriter, r *http.Request) {
 		jsonObj, _ = json.Marshal(res)
 		w.Write([]byte(jsonObj))
 	}
-}
-
-func init() {
-	log.SetFlags(log.Ldate | log.Lshortfile)
-}
-
-func parser(data interface{}) map[string]interface{} {
-	var i interface{}
-	json.Unmarshal([]byte(data.(string)), &i)
-	jData, _ := i.(map[string]interface{})
-	return jData
-}
-
-func get(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"code":0,"message":"welcome"}`))
 }
 
 func getBookList(pageIndex int) *responseBookList {
