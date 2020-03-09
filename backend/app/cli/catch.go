@@ -135,17 +135,46 @@ type bookList struct {
 	Detail     []bookDetail
 }
 
-func parser(data interface{}) map[string]interface{} {
-	var i interface{}
-	json.Unmarshal([]byte(data.(string)), &i)
-	jData, _ := i.(map[string]interface{})
-	return jData
+func example() {
+	client := redis.NewClient(&redis.Options{
+		Addr:     "redis:6379",
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+	defer client.Close()
+
+	page := 1
+	for {
+		var bookObj []bookList
+		bookObj, err := getBookData(page)
+		if err != nil {
+			fmt.Println(err.Error())
+			break
+		}
+		for _, val := range bookObj {
+			mapBookList := make(map[string]interface{})
+
+			jsonBookList, _ := json.Marshal(val)
+			json.Unmarshal(jsonBookList, &mapBookList)
+
+			jsonDetail, _ := json.Marshal(mapBookList["Detail"])
+			delete(mapBookList, "Detail")
+
+			mapBookList["Detail"] = string(jsonDetail)
+
+			err := client.HMSet(strconv.Itoa(val.ID), mapBookList).Err()
+			if err != nil {
+				panic(err)
+			}
+		}
+		fmt.Println(page)
+		page++
+	}
+
 }
 
-func createDateFormat(createDate string) string {
-	i, _ := strconv.ParseInt(createDate[6:len(createDate)-5], 10, 64)
-	tm := time.Unix(i, 0)
-	return tm.Format("2006-01-02 15:04:05")
+func main() {
+	example()
 }
 
 func getBookData(pageIndex int) (b []bookList, err error) {
@@ -210,10 +239,6 @@ func worker(bookIDChan <-chan int, results chan<- []bookDetail) {
 	}
 }
 
-func urlPathFormat(urlPath string) string {
-	return "https://wx.laomassf.com" + urlPath
-}
-
 func getRequestPost(urlStr string, jsonStr []byte) string {
 
 	req, err := http.NewRequest("POST", urlStr, bytes.NewBuffer(jsonStr))
@@ -246,46 +271,15 @@ func getRequestPost(urlStr string, jsonStr []byte) string {
 	return string(body)
 }
 
-func example() {
-	client := redis.NewClient(&redis.Options{
-		Addr:     "redis:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
-	defer client.Close()
-
-	page := 1
-	for {
-		var bookObj []bookList
-		bookObj, err := getBookData(page)
-		if err != nil {
-			fmt.Println(err.Error())
-			break
-		}
-		for _, val := range bookObj {
-			mapBookList := make(map[string]interface{})
-
-			jsonBookList, _ := json.Marshal(val)
-			json.Unmarshal(jsonBookList, &mapBookList)
-
-			jsonDetail, _ := json.Marshal(mapBookList["Detail"])
-			delete(mapBookList, "Detail")
-
-			mapBookList["Detail"] = string(jsonDetail)
-
-			err := client.HMSet(strconv.Itoa(val.ID), mapBookList).Err()
-			if err != nil {
-				panic(err)
-			}
-		}
-		fmt.Println(page)
-		page++
-	}
-
+func urlPathFormat(urlPath string) string {
+	return "https://wx.laomassf.com" + urlPath
 }
 
-func main() {
-	example()
+func parser(data interface{}) map[string]interface{} {
+	var i interface{}
+	json.Unmarshal([]byte(data.(string)), &i)
+	jData, _ := i.(map[string]interface{})
+	return jData
 }
 
 func getBookDetail(bookID int) []bookDetail {
@@ -313,4 +307,10 @@ func getBookDetail(bookID int) []bookDetail {
 		bookDetailObj[i].FilePath = urlPathFormat(wxBooksObj[i].FilePath)
 	}
 	return bookDetailObj
+}
+
+func createDateFormat(createDate string) string {
+	i, _ := strconv.ParseInt(createDate[6:len(createDate)-5], 10, 64)
+	tm := time.Unix(i, 0)
+	return tm.Format("2006-01-02 15:04:05")
 }
