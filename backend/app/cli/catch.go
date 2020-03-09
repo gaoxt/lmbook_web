@@ -167,59 +167,11 @@ func getRequestPost(urlStr string, jsonStr []byte) string {
 	return string(body)
 }
 
-func createDateFormat(createDate string) string {
-	i, _ := strconv.ParseInt(createDate[6:len(createDate)-5], 10, 64)
-	tm := time.Unix(i, 0)
-	return tm.Format("2006-01-02 15:04:05")
-}
-
 func parser(data interface{}) map[string]interface{} {
 	var i interface{}
 	json.Unmarshal([]byte(data.(string)), &i)
 	jData, _ := i.(map[string]interface{})
 	return jData
-}
-
-func example() {
-	client := redis.NewClient(&redis.Options{
-		Addr:     "redis:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
-	defer client.Close()
-
-	page := 1
-	for {
-		var bookObj []bookList
-		bookObj, err := getBookData(page)
-		if err != nil {
-			fmt.Println(err.Error())
-			break
-		}
-		for _, val := range bookObj {
-			mapBookList := make(map[string]interface{})
-
-			jsonBookList, _ := json.Marshal(val)
-			json.Unmarshal(jsonBookList, &mapBookList)
-
-			jsonDetail, _ := json.Marshal(mapBookList["Detail"])
-			delete(mapBookList, "Detail")
-
-			mapBookList["Detail"] = string(jsonDetail)
-
-			err := client.HMSet(strconv.Itoa(val.ID), mapBookList).Err()
-			if err != nil {
-				panic(err)
-			}
-		}
-		fmt.Println(page)
-		page++
-	}
-
-}
-
-func main() {
-	example()
 }
 
 func getBookData(pageIndex int) (b []bookList, err error) {
@@ -284,6 +236,16 @@ func worker(bookIDChan <-chan int, results chan<- []bookDetail) {
 	}
 }
 
+func urlPathFormat(urlPath string) string {
+	return "https://wx.laomassf.com" + urlPath
+}
+
+func createDateFormat(createDate string) string {
+	i, _ := strconv.ParseInt(createDate[6:len(createDate)-5], 10, 64)
+	tm := time.Unix(i, 0)
+	return tm.Format("2006-01-02 15:04:05")
+}
+
 func getBookDetail(bookID int) []bookDetail {
 	fmt.Printf("%d now ", bookID)
 
@@ -311,6 +273,44 @@ func getBookDetail(bookID int) []bookDetail {
 	return bookDetailObj
 }
 
-func urlPathFormat(urlPath string) string {
-	return "https://wx.laomassf.com" + urlPath
+func example() {
+	client := redis.NewClient(&redis.Options{
+		Addr:     "redis:6379",
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+	defer client.Close()
+
+	page := 1
+	for {
+		var bookObj []bookList
+		bookObj, err := getBookData(page)
+		if err != nil {
+			fmt.Println(err.Error())
+			break
+		}
+		for _, val := range bookObj {
+			mapBookList := make(map[string]interface{})
+
+			jsonBookList, _ := json.Marshal(val)
+			json.Unmarshal(jsonBookList, &mapBookList)
+
+			jsonDetail, _ := json.Marshal(mapBookList["Detail"])
+			delete(mapBookList, "Detail")
+
+			mapBookList["Detail"] = string(jsonDetail)
+
+			err := client.HMSet(strconv.Itoa(val.ID), mapBookList).Err()
+			if err != nil {
+				panic(err)
+			}
+		}
+		fmt.Println(page)
+		page++
+	}
+
+}
+
+func main() {
+	example()
 }
