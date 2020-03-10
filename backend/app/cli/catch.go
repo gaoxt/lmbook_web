@@ -135,6 +135,19 @@ type bookList struct {
 	Detail     []bookDetail
 }
 
+func parser(data interface{}) map[string]interface{} {
+	var i interface{}
+	json.Unmarshal([]byte(data.(string)), &i)
+	jData, _ := i.(map[string]interface{})
+	return jData
+}
+
+func createDateFormat(createDate string) string {
+	i, _ := strconv.ParseInt(createDate[6:len(createDate)-5], 10, 64)
+	tm := time.Unix(i, 0)
+	return tm.Format("2006-01-02 15:04:05")
+}
+
 func example() {
 	client := redis.NewClient(&redis.Options{
 		Addr:     "redis:6379",
@@ -239,17 +252,8 @@ func worker(bookIDChan <-chan int, results chan<- []bookDetail) {
 	}
 }
 
-func createDateFormat(createDate string) string {
-	i, _ := strconv.ParseInt(createDate[6:len(createDate)-5], 10, 64)
-	tm := time.Unix(i, 0)
-	return tm.Format("2006-01-02 15:04:05")
-}
-
-func parser(data interface{}) map[string]interface{} {
-	var i interface{}
-	json.Unmarshal([]byte(data.(string)), &i)
-	jData, _ := i.(map[string]interface{})
-	return jData
+func urlPathFormat(urlPath string) string {
+	return "https://wx.laomassf.com" + urlPath
 }
 
 func getRequestPost(urlStr string, jsonStr []byte) string {
@@ -282,10 +286,6 @@ func getRequestPost(urlStr string, jsonStr []byte) string {
 		panic(err)
 	}
 	return string(body)
-}
-
-func urlPathFormat(urlPath string) string {
-	return "https://wx.laomassf.com" + urlPath
 }
 
 func getBookDetail(bookID int) []bookDetail {
