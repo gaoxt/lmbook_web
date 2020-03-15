@@ -135,37 +135,17 @@ type bookList struct {
 	Detail     []bookDetail
 }
 
-func getBookDetail(bookID int) []bookDetail {
-	fmt.Printf("%d now ", bookID)
-
-	bookDetailURL := "https://wx.laomassf.com/prointerface/MiniApp/Index.asmx/GetAudioList"
-	values := map[string]interface{}{"bookId": bookID}
-	jsonStr, _ := json.Marshal(values)
-
-	jsonBody := getRequestPost(bookDetailURL, jsonStr)
-
-	firstData := parser(jsonBody)
-	secondData := parser(firstData["d"])
-	var wxBooksObj []wxBookDetail
-	_ = json.Unmarshal([]byte(secondData["Data"].(string)), &wxBooksObj)
-	var bookDetailObj = make([]bookDetail, len(wxBooksObj))
-	for i := 0; i < len(wxBooksObj); i++ {
-		bookDetailObj[i].Name = wxBooksObj[i].Name
-		bookDetailObj[i].Title = wxBooksObj[i].Title
-		bookDetailObj[i].HomeImg = urlPathFormat(wxBooksObj[i].HomeImg)
-		bookDetailObj[i].AudioAbstract = wxBooksObj[i].AudioAbstract
-		bookDetailObj[i].FileSize = wxBooksObj[i].FileSize
-		bookDetailObj[i].FileDuration = wxBooksObj[i].FileDuration
-		bookDetailObj[i].CreateDate = createDateFormat(wxBooksObj[i].CreateDate)
-		bookDetailObj[i].FilePath = urlPathFormat(wxBooksObj[i].FilePath)
-	}
-	return bookDetailObj
-}
-
 func createDateFormat(createDate string) string {
 	i, _ := strconv.ParseInt(createDate[6:len(createDate)-5], 10, 64)
 	tm := time.Unix(i, 0)
 	return tm.Format("2006-01-02 15:04:05")
+}
+
+func parser(data interface{}) map[string]interface{} {
+	var i interface{}
+	json.Unmarshal([]byte(data.(string)), &i)
+	jData, _ := i.(map[string]interface{})
+	return jData
 }
 
 func getRequestPost(urlStr string, jsonStr []byte) string {
@@ -266,11 +246,31 @@ func urlPathFormat(urlPath string) string {
 	return "https://wx.laomassf.com" + urlPath
 }
 
-func parser(data interface{}) map[string]interface{} {
-	var i interface{}
-	json.Unmarshal([]byte(data.(string)), &i)
-	jData, _ := i.(map[string]interface{})
-	return jData
+func getBookDetail(bookID int) []bookDetail {
+	fmt.Printf("%d now ", bookID)
+
+	bookDetailURL := "https://wx.laomassf.com/prointerface/MiniApp/Index.asmx/GetAudioList"
+	values := map[string]interface{}{"bookId": bookID}
+	jsonStr, _ := json.Marshal(values)
+
+	jsonBody := getRequestPost(bookDetailURL, jsonStr)
+
+	firstData := parser(jsonBody)
+	secondData := parser(firstData["d"])
+	var wxBooksObj []wxBookDetail
+	_ = json.Unmarshal([]byte(secondData["Data"].(string)), &wxBooksObj)
+	var bookDetailObj = make([]bookDetail, len(wxBooksObj))
+	for i := 0; i < len(wxBooksObj); i++ {
+		bookDetailObj[i].Name = wxBooksObj[i].Name
+		bookDetailObj[i].Title = wxBooksObj[i].Title
+		bookDetailObj[i].HomeImg = urlPathFormat(wxBooksObj[i].HomeImg)
+		bookDetailObj[i].AudioAbstract = wxBooksObj[i].AudioAbstract
+		bookDetailObj[i].FileSize = wxBooksObj[i].FileSize
+		bookDetailObj[i].FileDuration = wxBooksObj[i].FileDuration
+		bookDetailObj[i].CreateDate = createDateFormat(wxBooksObj[i].CreateDate)
+		bookDetailObj[i].FilePath = urlPathFormat(wxBooksObj[i].FilePath)
+	}
+	return bookDetailObj
 }
 
 func example() {
