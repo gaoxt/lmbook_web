@@ -4,16 +4,15 @@
 # description
 frontend使用了ant-design的样式，通过vue数据绑定，vuex状态管理，使用indexeddb缓存到本地，vue-aplayer插件加载播放器。
 
-backend使用golang做webserver、业务api和数据抓取，通过redis的rdb持久化到本地。
+backend通过app提供RESTful风格API、spider提供数据抓取，通过redis的rdb持久化到本地。
 
 业务主要文件介绍
  ```c
 ├── backend     
 │   ├── Dockerfile      #构建打包golang项目
 │   ├── redis           #redis本地持久化和配置
-│   ├── app             
-│   │   ├── cli         #数据抓取脚本
-│   │   ├── main.go     #业务主要代码
+│   ├── app             #业务主要代码
+│   ├── spider          #数据抓取脚本
 └── frontend           
     ├── Dockerfile      #多阶段构建打包vue和nginx
     └── web-book        
