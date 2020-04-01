@@ -61,34 +61,24 @@ func (b BookListSort) Less(i, j int) bool {
 	return b[i].Value.ID < b[j].Value.ID
 }
 
-func apiBookDetail(w http.ResponseWriter, r *http.Request) {
+func apiBookList(w http.ResponseWriter, r *http.Request) {
 	pathParams := mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	var jsonObj []byte
-	bookID := -1
+	page := 1
 	var err error
-	if val, ok := pathParams["id"]; ok {
-		bookID, err = strconv.Atoi(val)
+	if val, ok := pathParams["page"]; ok {
+		page, err = strconv.Atoi(val)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(`{"code":1,"message":"error params"}`))
 			return
 		}
 	}
-	if bookID <= 0 {
-		var bookDetailObj = make([]bookDetail, 0)
-		res := responseBookDetail{}
-		res.Code = 2
-		res.Message = "error bookID"
-		res.Data = bookDetailObj
-		jsonObj, _ = json.Marshal(res)
-		w.Write([]byte(jsonObj))
-	} else {
-		res := getBookDetail(bookID)
-		jsonObj, _ = json.Marshal(res)
-		w.Write([]byte(jsonObj))
-	}
+	var jsonObj []byte
+	res := getBookList(page)
+	jsonObj, _ = json.Marshal(res)
+	w.Write([]byte(jsonObj))
 }
 
 func getBookDetail(bookID int) *responseBookDetail {
@@ -111,13 +101,6 @@ func getBookDetail(bookID int) *responseBookDetail {
 	res.Message = "success"
 	res.Data = bookDetailObj
 	return res
-}
-
-func parser(data interface{}) map[string]interface{} {
-	var i interface{}
-	json.Unmarshal([]byte(data.(string)), &i)
-	jData, _ := i.(map[string]interface{})
-	return jData
 }
 
 func getBookList(pageIndex int) *responseBookList {
@@ -187,8 +170,41 @@ func main() {
 	log.Fatal(http.ListenAndServe("0.0.0.0:8081", r))
 }
 
-func init() {
-	log.SetFlags(log.Ldate | log.Lshortfile)
+func apiBookDetail(w http.ResponseWriter, r *http.Request) {
+	pathParams := mux.Vars(r)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	var jsonObj []byte
+	bookID := -1
+	var err error
+	if val, ok := pathParams["id"]; ok {
+		bookID, err = strconv.Atoi(val)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`{"code":1,"message":"error params"}`))
+			return
+		}
+	}
+	if bookID <= 0 {
+		var bookDetailObj = make([]bookDetail, 0)
+		res := responseBookDetail{}
+		res.Code = 2
+		res.Message = "error bookID"
+		res.Data = bookDetailObj
+		jsonObj, _ = json.Marshal(res)
+		w.Write([]byte(jsonObj))
+	} else {
+		res := getBookDetail(bookID)
+		jsonObj, _ = json.Marshal(res)
+		w.Write([]byte(jsonObj))
+	}
+}
+
+func parser(data interface{}) map[string]interface{} {
+	var i interface{}
+	json.Unmarshal([]byte(data.(string)), &i)
+	jData, _ := i.(map[string]interface{})
+	return jData
 }
 
 func get(w http.ResponseWriter, r *http.Request) {
@@ -198,22 +214,6 @@ func get(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"code":0,"message":"welcome"}`))
 }
 
-func apiBookList(w http.ResponseWriter, r *http.Request) {
-	pathParams := mux.Vars(r)
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	page := 1
-	var err error
-	if val, ok := pathParams["page"]; ok {
-		page, err = strconv.Atoi(val)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"code":1,"message":"error params"}`))
-			return
-		}
-	}
-	var jsonObj []byte
-	res := getBookList(page)
-	jsonObj, _ = json.Marshal(res)
-	w.Write([]byte(jsonObj))
+func init() {
+	log.SetFlags(log.Ldate | log.Lshortfile)
 }
