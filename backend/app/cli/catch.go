@@ -177,55 +177,6 @@ func main() {
 	example()
 }
 
-func getRequestPost(urlStr string, jsonStr []byte) string {
-
-	req, err := http.NewRequest("POST", urlStr, bytes.NewBuffer(jsonStr))
-	if err != nil {
-		panic(err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Host", "wx.laomassf.com")
-	req.Header.Set("Referer", "https://servicewechat.com/wx1f8180176500f209/25/page-frame.html")
-	req.Header.Set("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 13_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/7.0.10(0x17000a21) NetType/WIFI Language/zh_CN")
-	// proxyURL, err := url.Parse("http://127.0.0.1:8888")
-	if err != nil {
-		panic(err)
-	}
-	// tr := &http.Transport{
-	// 	Proxy: http.ProxyURL(proxyURL),
-	// }
-	// client := &http.Client{Transport: tr}
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		panic(err)
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		panic(err)
-	}
-	return string(body)
-}
-
-func createDateFormat(createDate string) string {
-	i, _ := strconv.ParseInt(createDate[6:len(createDate)-5], 10, 64)
-	tm := time.Unix(i, 0)
-	return tm.Format("2006-01-02 15:04:05")
-}
-
-func parser(data interface{}) map[string]interface{} {
-	var i interface{}
-	json.Unmarshal([]byte(data.(string)), &i)
-	jData, _ := i.(map[string]interface{})
-	return jData
-}
-
-func urlPathFormat(urlPath string) string {
-	return "https://wx.laomassf.com" + urlPath
-}
-
 func getBookData(pageIndex int) (b []bookList, err error) {
 
 	pageSize := 15
@@ -288,6 +239,12 @@ func worker(bookIDChan <-chan int, results chan<- []bookDetail) {
 	}
 }
 
+func createDateFormat(createDate string) string {
+	i, _ := strconv.ParseInt(createDate[6:len(createDate)-5], 10, 64)
+	tm := time.Unix(i, 0)
+	return tm.Format("2006-01-02 15:04:05")
+}
+
 func getBookDetail(bookID int) []bookDetail {
 	fmt.Printf("%d now ", bookID)
 
@@ -313,4 +270,47 @@ func getBookDetail(bookID int) []bookDetail {
 		bookDetailObj[i].FilePath = urlPathFormat(wxBooksObj[i].FilePath)
 	}
 	return bookDetailObj
+}
+
+func urlPathFormat(urlPath string) string {
+	return "https://wx.laomassf.com" + urlPath
+}
+
+func getRequestPost(urlStr string, jsonStr []byte) string {
+
+	req, err := http.NewRequest("POST", urlStr, bytes.NewBuffer(jsonStr))
+	if err != nil {
+		panic(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Host", "wx.laomassf.com")
+	req.Header.Set("Referer", "https://servicewechat.com/wx1f8180176500f209/25/page-frame.html")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 13_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/7.0.10(0x17000a21) NetType/WIFI Language/zh_CN")
+	// proxyURL, err := url.Parse("http://127.0.0.1:8888")
+	if err != nil {
+		panic(err)
+	}
+	// tr := &http.Transport{
+	// 	Proxy: http.ProxyURL(proxyURL),
+	// }
+	// client := &http.Client{Transport: tr}
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		panic(err)
+	}
+	return string(body)
+}
+
+func parser(data interface{}) map[string]interface{} {
+	var i interface{}
+	json.Unmarshal([]byte(data.(string)), &i)
+	jData, _ := i.(map[string]interface{})
+	return jData
 }
