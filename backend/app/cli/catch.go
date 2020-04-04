@@ -239,12 +239,6 @@ func worker(bookIDChan <-chan int, results chan<- []bookDetail) {
 	}
 }
 
-func createDateFormat(createDate string) string {
-	i, _ := strconv.ParseInt(createDate[6:len(createDate)-5], 10, 64)
-	tm := time.Unix(i, 0)
-	return tm.Format("2006-01-02 15:04:05")
-}
-
 func getBookDetail(bookID int) []bookDetail {
 	fmt.Printf("%d now ", bookID)
 
@@ -270,10 +264,6 @@ func getBookDetail(bookID int) []bookDetail {
 		bookDetailObj[i].FilePath = urlPathFormat(wxBooksObj[i].FilePath)
 	}
 	return bookDetailObj
-}
-
-func urlPathFormat(urlPath string) string {
-	return "https://wx.laomassf.com" + urlPath
 }
 
 func getRequestPost(urlStr string, jsonStr []byte) string {
@@ -313,4 +303,14 @@ func parser(data interface{}) map[string]interface{} {
 	json.Unmarshal([]byte(data.(string)), &i)
 	jData, _ := i.(map[string]interface{})
 	return jData
+}
+
+func createDateFormat(createDate string) string {
+	i, _ := strconv.ParseInt(createDate[6:len(createDate)-5], 10, 64)
+	tm := time.Unix(i, 0)
+	return tm.Format("2006-01-02 15:04:05")
+}
+
+func urlPathFormat(urlPath string) string {
+	return "https://wx.laomassf.com" + urlPath
 }
