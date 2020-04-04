@@ -135,105 +135,6 @@ type bookList struct {
 	Detail     []bookDetail
 }
 
-func getBookDetail(bookID int) []bookDetail {
-	fmt.Printf("%d now ", bookID)
-
-	bookDetailURL := "https://wx.laomassf.com/prointerface/MiniApp/Index.asmx/GetAudioList"
-	values := map[string]interface{}{"bookId": bookID}
-	jsonStr, _ := json.Marshal(values)
-
-	jsonBody := getRequestPost(bookDetailURL, jsonStr)
-
-	firstData := parser(jsonBody)
-	secondData := parser(firstData["d"])
-	var wxBooksObj []wxBookDetail
-	_ = json.Unmarshal([]byte(secondData["Data"].(string)), &wxBooksObj)
-	var bookDetailObj = make([]bookDetail, len(wxBooksObj))
-	for i := 0; i < len(wxBooksObj); i++ {
-		bookDetailObj[i].Name = wxBooksObj[i].Name
-		bookDetailObj[i].Title = wxBooksObj[i].Title
-		bookDetailObj[i].HomeImg = urlPathFormat(wxBooksObj[i].HomeImg)
-		bookDetailObj[i].AudioAbstract = wxBooksObj[i].AudioAbstract
-		bookDetailObj[i].FileSize = wxBooksObj[i].FileSize
-		bookDetailObj[i].FileDuration = wxBooksObj[i].FileDuration
-		bookDetailObj[i].CreateDate = createDateFormat(wxBooksObj[i].CreateDate)
-		bookDetailObj[i].FilePath = urlPathFormat(wxBooksObj[i].FilePath)
-	}
-	return bookDetailObj
-}
-
-func createDateFormat(createDate string) string {
-	i, _ := strconv.ParseInt(createDate[6:len(createDate)-5], 10, 64)
-	tm := time.Unix(i, 0)
-	return tm.Format("2006-01-02 15:04:05")
-}
-
-func urlPathFormat(urlPath string) string {
-	return "https://wx.laomassf.com" + urlPath
-}
-
-func getBookData(pageIndex int) (b []bookList, err error) {
-
-	pageSize := 15
-	bookListURL := "https://wx.laomassf.com/prointerface/MiniApp/Index.asmx/GetBookList"
-
-	values := map[string]interface{}{"types": "0", "pageIndex": pageIndex, "pageSize": pageSize}
-	jsonStr, err := json.Marshal(values)
-	if err != nil {
-		return nil, err
-	}
-	jsonBody := getRequestPost(bookListURL, jsonStr)
-
-	firstData := parser(jsonBody)
-	secondData := parser(firstData["d"])
-
-	var wxBookListObj []wxBookList
-
-	if secondData["Data"] == nil {
-		return nil, errors.New("data is nil")
-	}
-	_ = json.Unmarshal([]byte(secondData["Data"].(string)), &wxBookListObj)
-	lenWxBookListObj := len(wxBookListObj)
-	var bookListObj = make([]bookList, lenWxBookListObj)
-	if lenWxBookListObj == 0 {
-		return nil, err
-	}
-
-	bookIDChan := make(chan int, lenWxBookListObj)
-	resultChan := make(chan []bookDetail, lenWxBookListObj)
-
-	for i := 0; i < lenWxBookListObj; i++ {
-		bookListObj[i].ID = wxBookListObj[i].ID
-		bookListObj[i].Name = wxBookListObj[i].Name
-		bookListObj[i].Author = wxBookListObj[i].Author
-		bookListObj[i].HomeImg = urlPathFormat(wxBookListObj[i].HomeImg)
-		bookListObj[i].Abstract = wxBookListObj[i].Abstract
-		bookListObj[i].PayPrice = wxBookListObj[i].PayPrice
-		bookListObj[i].CreateDate = createDateFormat(wxBookListObj[i].CreateDate)
-		bookListObj[i].Detail = nil
-
-	}
-	go worker(bookIDChan, resultChan)
-
-	for i := 0; i < len(bookListObj); i++ {
-		bookIDChan <- bookListObj[i].ID
-	}
-	close(bookIDChan)
-
-	for i := 0; i < len(bookListObj); i++ {
-		bookListObj[i].Detail = <-resultChan
-	}
-
-	return bookListObj, nil
-
-}
-
-func worker(bookIDChan <-chan int, results chan<- []bookDetail) {
-	for bookID := range bookIDChan {
-		results <- getBookDetail(bookID)
-	}
-}
-
 func example() {
 	client := redis.NewClient(&redis.Options{
 		Addr:     "redis:6379",
@@ -308,9 +209,108 @@ func getRequestPost(urlStr string, jsonStr []byte) string {
 	return string(body)
 }
 
+func createDateFormat(createDate string) string {
+	i, _ := strconv.ParseInt(createDate[6:len(createDate)-5], 10, 64)
+	tm := time.Unix(i, 0)
+	return tm.Format("2006-01-02 15:04:05")
+}
+
 func parser(data interface{}) map[string]interface{} {
 	var i interface{}
 	json.Unmarshal([]byte(data.(string)), &i)
 	jData, _ := i.(map[string]interface{})
 	return jData
+}
+
+func urlPathFormat(urlPath string) string {
+	return "https://wx.laomassf.com" + urlPath
+}
+
+func getBookData(pageIndex int) (b []bookList, err error) {
+
+	pageSize := 15
+	bookListURL := "https://wx.laomassf.com/prointerface/MiniApp/Index.asmx/GetBookList"
+
+	values := map[string]interface{}{"types": "0", "pageIndex": pageIndex, "pageSize": pageSize}
+	jsonStr, err := json.Marshal(values)
+	if err != nil {
+		return nil, err
+	}
+	jsonBody := getRequestPost(bookListURL, jsonStr)
+
+	firstData := parser(jsonBody)
+	secondData := parser(firstData["d"])
+
+	var wxBookListObj []wxBookList
+
+	if secondData["Data"] == nil {
+		return nil, errors.New("data is nil")
+	}
+	_ = json.Unmarshal([]byte(secondData["Data"].(string)), &wxBookListObj)
+	lenWxBookListObj := len(wxBookListObj)
+	var bookListObj = make([]bookList, lenWxBookListObj)
+	if lenWxBookListObj == 0 {
+		return nil, err
+	}
+
+	bookIDChan := make(chan int, lenWxBookListObj)
+	resultChan := make(chan []bookDetail, lenWxBookListObj)
+
+	for i := 0; i < lenWxBookListObj; i++ {
+		bookListObj[i].ID = wxBookListObj[i].ID
+		bookListObj[i].Name = wxBookListObj[i].Name
+		bookListObj[i].Author = wxBookListObj[i].Author
+		bookListObj[i].HomeImg = urlPathFormat(wxBookListObj[i].HomeImg)
+		bookListObj[i].Abstract = wxBookListObj[i].Abstract
+		bookListObj[i].PayPrice = wxBookListObj[i].PayPrice
+		bookListObj[i].CreateDate = createDateFormat(wxBookListObj[i].CreateDate)
+		bookListObj[i].Detail = nil
+
+	}
+	go worker(bookIDChan, resultChan)
+
+	for i := 0; i < len(bookListObj); i++ {
+		bookIDChan <- bookListObj[i].ID
+	}
+	close(bookIDChan)
+
+	for i := 0; i < len(bookListObj); i++ {
+		bookListObj[i].Detail = <-resultChan
+	}
+
+	return bookListObj, nil
+
+}
+
+func worker(bookIDChan <-chan int, results chan<- []bookDetail) {
+	for bookID := range bookIDChan {
+		results <- getBookDetail(bookID)
+	}
+}
+
+func getBookDetail(bookID int) []bookDetail {
+	fmt.Printf("%d now ", bookID)
+
+	bookDetailURL := "https://wx.laomassf.com/prointerface/MiniApp/Index.asmx/GetAudioList"
+	values := map[string]interface{}{"bookId": bookID}
+	jsonStr, _ := json.Marshal(values)
+
+	jsonBody := getRequestPost(bookDetailURL, jsonStr)
+
+	firstData := parser(jsonBody)
+	secondData := parser(firstData["d"])
+	var wxBooksObj []wxBookDetail
+	_ = json.Unmarshal([]byte(secondData["Data"].(string)), &wxBooksObj)
+	var bookDetailObj = make([]bookDetail, len(wxBooksObj))
+	for i := 0; i < len(wxBooksObj); i++ {
+		bookDetailObj[i].Name = wxBooksObj[i].Name
+		bookDetailObj[i].Title = wxBooksObj[i].Title
+		bookDetailObj[i].HomeImg = urlPathFormat(wxBooksObj[i].HomeImg)
+		bookDetailObj[i].AudioAbstract = wxBooksObj[i].AudioAbstract
+		bookDetailObj[i].FileSize = wxBooksObj[i].FileSize
+		bookDetailObj[i].FileDuration = wxBooksObj[i].FileDuration
+		bookDetailObj[i].CreateDate = createDateFormat(wxBooksObj[i].CreateDate)
+		bookDetailObj[i].FilePath = urlPathFormat(wxBooksObj[i].FilePath)
+	}
+	return bookDetailObj
 }
