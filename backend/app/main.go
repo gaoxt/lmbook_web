@@ -61,6 +61,13 @@ func (b BookListSort) Less(i, j int) bool {
 	return b[i].Value.ID < b[j].Value.ID
 }
 
+func parser(data interface{}) map[string]interface{} {
+	var i interface{}
+	json.Unmarshal([]byte(data.(string)), &i)
+	jData, _ := i.(map[string]interface{})
+	return jData
+}
+
 func getBookDetail(bookID int) *responseBookDetail {
 	client := singletonRedis.GetRedis()
 	client.Do("select", 0)
@@ -81,20 +88,6 @@ func getBookDetail(bookID int) *responseBookDetail {
 	res.Message = "success"
 	res.Data = bookDetailObj
 	return res
-}
-
-func parser(data interface{}) map[string]interface{} {
-	var i interface{}
-	json.Unmarshal([]byte(data.(string)), &i)
-	jData, _ := i.(map[string]interface{})
-	return jData
-}
-
-func get(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"code":0,"message":"welcome"}`))
 }
 
 func getBookList(pageIndex int) *responseBookList {
@@ -156,6 +149,26 @@ func getRequestPost(url string, jsonStr []byte) string {
 	return string(body)
 }
 
+func apiBookList(w http.ResponseWriter, r *http.Request) {
+	pathParams := mux.Vars(r)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	page := 1
+	var err error
+	if val, ok := pathParams["page"]; ok {
+		page, err = strconv.Atoi(val)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`{"code":1,"message":"error params"}`))
+			return
+		}
+	}
+	var jsonObj []byte
+	res := getBookList(page)
+	jsonObj, _ = json.Marshal(res)
+	w.Write([]byte(jsonObj))
+}
+
 func apiBookDetail(w http.ResponseWriter, r *http.Request) {
 	pathParams := mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
@@ -186,6 +199,13 @@ func apiBookDetail(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func get(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"code":0,"message":"welcome"}`))
+}
+
 func init() {
 	log.SetFlags(log.Ldate | log.Lshortfile)
 }
@@ -196,24 +216,4 @@ func main() {
 	r.HandleFunc("/list/{page}", apiBookList).Methods(http.MethodGet)
 	r.HandleFunc("/detail/{id}", apiBookDetail).Methods(http.MethodGet)
 	log.Fatal(http.ListenAndServe("0.0.0.0:8081", r))
-}
-
-func apiBookList(w http.ResponseWriter, r *http.Request) {
-	pathParams := mux.Vars(r)
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	page := 1
-	var err error
-	if val, ok := pathParams["page"]; ok {
-		page, err = strconv.Atoi(val)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"code":1,"message":"error params"}`))
-			return
-		}
-	}
-	var jsonObj []byte
-	res := getBookList(page)
-	jsonObj, _ = json.Marshal(res)
-	w.Write([]byte(jsonObj))
 }
