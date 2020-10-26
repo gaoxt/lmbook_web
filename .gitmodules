@@ -1,0 +1,3 @@
+[submodule "backend/spiders"]
+	path = backend/spiders
+	url = https://github.com/gaoxt/spiders
